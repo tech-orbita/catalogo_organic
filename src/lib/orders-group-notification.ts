@@ -26,7 +26,9 @@ export interface AcceptedQuoteOrder {
   location_name_snapshot?: string | null;
   location_whatsapp_snapshot?: string | null;
   quote_message?: string | null;
+  sales_origin_type?: "store_location" | "catalogo_virtual" | null;
   sales_origin_location_id?: string | null;
+  sales_origin_label?: string | null;
   quote_items?: OrderQuoteItem[] | null;
   quote_delivery_fee?: number | string | null;
 }
@@ -55,13 +57,24 @@ export function isDirectNotificationLocation(name: string | null | undefined) {
 }
 
 /**
- * "Cotización aprobada por el cliente" seguido del mismo mensaje de la cotización
- * que aceptó, con todos sus datos, sin la instrucción de responder APROBAR o
- * RECHAZAR. Si el pedido se aceptó sin cotización enviada, se arma con el mismo
- * formato a partir de lo solicitado.
+ * De dónde viene el pedido, para el seguimiento: la sede asignada al contacto o,
+ * si no tiene ninguna, el catálogo virtual.
+ */
+function describeOrderOrigin(order: AcceptedQuoteOrder) {
+  const label = order.sales_origin_label?.trim();
+  if (order.sales_origin_type !== "store_location" || !label) return "Solo catálogo virtual";
+  return /^sede\b/i.test(label) ? label : `Sede ${label}`;
+}
+
+/**
+ * "Cotización aprobada por el cliente" y el origen del pedido, seguidos del mismo
+ * mensaje de la cotización que aceptó, con todos sus datos, sin la instrucción de
+ * responder APROBAR o RECHAZAR. Si el pedido se aceptó sin cotización enviada, se
+ * arma con el mismo formato a partir de lo solicitado.
  */
 async function buildAcceptedQuoteMessage(order: AcceptedQuoteOrder, supabase: SupabaseClient) {
-  return `${ACCEPTED_QUOTE_HEADING}\n\n${await buildQuoteBody(order, supabase)}`;
+  const origin = `*Origen:* ${describeOrderOrigin(order)}`;
+  return `${ACCEPTED_QUOTE_HEADING}\n${origin}\n\n${await buildQuoteBody(order, supabase)}`;
 }
 
 const ACCEPTED_QUOTE_HEADING = "*✅ Cotización aprobada por el cliente*";
